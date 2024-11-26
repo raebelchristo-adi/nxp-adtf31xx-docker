@@ -34,14 +34,10 @@ RUN echo "source /opt/ros/$ROS_DISTRO/setup.bash" >> ~/.bashrc
 #Building Rosdep dependencies
 FROM base AS rosdep_dependencies
 
-# Create a workspace directory
-RUN mkdir -p /home/analog/ros2_ws/src
-
-# Copy the adi_3dtof_adtf31xx folder to the workspace src directory
-# COPY adi_3dtof_adtf31xx /home/analog/ros2_ws/src/adi_3dtof_adtf31xx
-# WORKDIR /home/analog/ros2_ws
-# Mount ros2_ws from /home/analog/ros2_ws to /root
-VOLUME ["/home/analog/ros2_ws:/home/analog/ros2_ws"]
+RUN mkdir -p /root/ros2_ws/src
+#Copy the adi_3dtof_adtf31xx folder to the workspace src directory
+COPY adi_3dtof_adtf31xx /root/ros2_ws/src/adi_3dtof_adtf31xx
+WORKDIR /root/ros2_ws
 
 # Install rosdep
 RUN apt-get update && apt-get install -y python3-rosdep && rm -rf /var/lib/apt/lists/*
@@ -50,14 +46,16 @@ RUN apt-get update && apt-get install -y python3-rosdep && rm -rf /var/lib/apt/l
 RUN rosdep init && rosdep update
 
 # Install dependencies using rosdep
-RUN apt-get update && rosdep install --from-paths src --ignore-src -r -y
+RUN apt-get update && rosdep install --from-paths src --ignore-src -y
 
 ########################################################################################
 FROM rosdep_dependencies AS tof_dependencies
 #Build ToF Dependencies from source
 
 #Build Glog
-WORKDIR /home/analog/
+WORKDIR /root/
+RUN mkdir workspace
+WORKDIR /root/workspace
 RUN git clone --branch v0.6.0 --depth 1 https://github.com/google/glog \
     && cd glog \
     && mkdir build_0_6_0 && cd build_0_6_0 \
@@ -65,7 +63,7 @@ RUN git clone --branch v0.6.0 --depth 1 https://github.com/google/glog \
     && cmake --build . --target install
 
 #Build Libwebsockets
-WORKDIR /home/analog/
+WORKDIR /root/workspace
 RUN git clone --branch v3.1-stable --depth 1 https://github.com/warmcat/libwebsockets \
     && cd libwebsockets \
     && mkdir build_3_1 && cd build_3_1 \
@@ -73,7 +71,7 @@ RUN git clone --branch v3.1-stable --depth 1 https://github.com/warmcat/libwebso
     && cmake --build . --target install
 
 #Build Protobuf
-WORKDIR /home/analog/
+WORKDIR /root/workspace
 RUN git clone --branch v3.9.0 --depth 1 https://github.com/protocolbuffers/protobuf \
     && cd protobuf \
     && mkdir build_3_9_0 && cd build_3_9_0 \
@@ -82,33 +80,21 @@ RUN git clone --branch v3.9.0 --depth 1 https://github.com/protocolbuffers/proto
 
 ENV CMAKE_PREFIX_PATH="/opt/glog;/opt/protobuf;/opt/websockets"
 
+WORKDIR /root/workspace
+RUN mkdir libs
+COPY libtofi_compute.so /root/workspace/libs/libtofi_compute.so
+COPY libtofi_config.so /root/workspace/libs/libtofi_config.so
+
 # Build ToF
-WORKDIR /home/analog/
 RUN git clone --branch v5.0.0 --depth 1 https://github.com/analogdevicesinc/ToF \
     && cd ToF \
-    && git submodule update --init \
     && mkdir build && cd build \
-    && cmake -DWITH_EXAMPLES=on -DCMAKE_PREFIX_PATH="/opt/glog;/opt/protobuf;/opt/websockets" -DCMAKE_BUILD_TYPE=Release .. \
+    && cmake -DNXP=1 -DWITH_EXAMPLES=on -DCMAKE_PREFIX_PATH="/opt/glog;/opt/protobuf;/opt/websockets" -DCMAKE_BUILD_TYPE=Release .. \
     && make -j4
-WORKDIR /home/analog/
+WORKDIR /root/
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/glog/lib:/opt/protobuf/lib:/opt/websockets/lib
-
-# Clean up the source directories
-RUN rm -rf /home/analog/glog /home/analog/libwebsockets /home/analog/protobuf
+RUN unset CMAKE_PREFIX_PATH
 ########################################################################################
-FROM tof_dependencies AS ros_build
-#build the workspace
-ENV MAKEFLAGS='-j 2'
-RUN /bin/bash -c "source /opt/ros/humble/setup.bash && colcon build --symlink-install --executor sequential --cmake-args -DCMAKE_BUILD_TYPE=Release --event-handlers console_direct+" \
-    && { \
-        echo "Build successful, running additional commands."; \
-        export FASTRTPS_DEFAULT_PROFILES_FILE="/home/analog/ros2_ws/src/adi_3dtof_adtf31xx/rmw_config/rmw_settings.xml"; \
-        source /opt/ros/humble/setup.bash && ros2 daemon stop; \
-        chmod +x /home/analog/ros2_ws/src/adi_3dtof_adtf31xx/rmw_config/setup_rmw_settings.sh; \
-        source /home/analog/ros2_ws/src/adi_3dtof_adtf31xx/rmw_config/setup_rmw_settings.sh; \
-    } || { \
-        echo "Build failed, skipping additional commands."; \
-    }
 
 # Set the entrypoint
 ENTRYPOINT ["/ros_entrypoint.sh"]
