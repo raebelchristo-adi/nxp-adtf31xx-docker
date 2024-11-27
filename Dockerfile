@@ -86,7 +86,7 @@ COPY libtofi_compute.so /root/workspace/libs/libtofi_compute.so
 COPY libtofi_config.so /root/workspace/libs/libtofi_config.so
 
 # Build ToF
-RUN git clone --branch v5.0.0 --depth 1 https://github.com/analogdevicesinc/ToF \
+RUN git clone --branch v4.3.0 --depth 1 https://github.com/analogdevicesinc/ToF \
     && cd ToF \
     && mkdir build && cd build \
     && cmake -DNXP=1 -DWITH_EXAMPLES=on -DCMAKE_PREFIX_PATH="/opt/glog;/opt/protobuf;/opt/websockets" -DCMAKE_BUILD_TYPE=Release .. \
