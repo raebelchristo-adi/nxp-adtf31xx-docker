@@ -96,6 +96,13 @@ ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/glog/lib:/opt/protobuf/lib:/opt/websoc
 RUN unset CMAKE_PREFIX_PATH
 ########################################################################################
 
+FROM tof_dependencies AS final
+
+# Build the ROS2 workspace
+WORKDIR /root/ros2_ws
+ENV MAKEFLAGS="-j2"
+RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/setup.bash && colcon build --symlink-install --executor sequential --cmake-args -DCMAKE_BUILD_TYPE=Release"
+
 # Set the entrypoint
 ENTRYPOINT ["/ros_entrypoint.sh"]
 CMD ["bash"]
