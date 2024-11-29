@@ -92,8 +92,9 @@ COPY libtofi_compute.so /root/workspace/libs/libtofi_compute.so
 COPY libtofi_config.so /root/workspace/libs/libtofi_config.so
 
 # Build ToF
-RUN git clone --branch v4.2.0 --depth 1 https://github.com/analogdevicesinc/ToF \
+RUN git clone --depth 1 https://github.com/analogdevicesinc/libaditof.git \
     && cd ToF \
+    && git reset --hard 1ad9385 \
     && mkdir build && cd build \
     && cmake -DNXP=1 -DWITH_EXAMPLES=on -DCMAKE_PREFIX_PATH="/opt/glog;/opt/protobuf;/opt/websockets" -DCMAKE_BUILD_TYPE=Release .. \
     && make -j4
@@ -103,7 +104,7 @@ RUN unset CMAKE_PREFIX_PATH
 ########################################################################################
 
 # SKipping the ToF stage
-FROM rosdep_dependencies AS final
+FROM tof_dependencies AS final
 
 # Entry at ros2_ws
 WORKDIR /root/ros2_ws
