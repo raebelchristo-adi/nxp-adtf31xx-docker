@@ -61,30 +61,30 @@ FROM rosdep_dependencies AS tof_dependencies
 #Build Glog
 WORKDIR /root/
 RUN mkdir workspace
-WORKDIR /root/workspace
-RUN git clone --branch v0.6.0 --depth 1 https://github.com/google/glog \
-    && cd glog \
-    && mkdir build_0_6_0 && cd build_0_6_0 \
-    && cmake -DWITH_GFLAGS=off -DCMAKE_INSTALL_PREFIX=/opt/glog .. \
-    && cmake --build . --target install
+# WORKDIR /root/workspace
+# RUN git clone --branch v0.6.0 --depth 1 https://github.com/google/glog \
+#     && cd glog \
+#     && mkdir build_0_6_0 && cd build_0_6_0 \
+#     && cmake -DWITH_GFLAGS=off -DCMAKE_INSTALL_PREFIX=/opt/glog .. \
+#     && cmake --build . --target install
 
-#Build Libwebsockets
-WORKDIR /root/workspace
-RUN git clone --branch v3.1-stable --depth 1 https://github.com/warmcat/libwebsockets \
-    && cd libwebsockets \
-    && mkdir build_3_1 && cd build_3_1 \
-    && cmake -DLWS_WITH_SSL=OFF -DLWS_STATIC_PIC=ON -DCMAKE_INSTALL_PREFIX=/opt/websockets .. \
-    && cmake --build . --target install
+# #Build Libwebsockets
+# WORKDIR /root/workspace
+# RUN git clone --branch v3.1-stable --depth 1 https://github.com/warmcat/libwebsockets \
+#     && cd libwebsockets \
+#     && mkdir build_3_1 && cd build_3_1 \
+#     && cmake -DLWS_WITH_SSL=OFF -DLWS_STATIC_PIC=ON -DCMAKE_INSTALL_PREFIX=/opt/websockets .. \
+#     && cmake --build . --target install
 
-#Build Protobuf
-WORKDIR /root/workspace
-RUN git clone --branch v3.9.0 --depth 1 https://github.com/protocolbuffers/protobuf \
-    && cd protobuf \
-    && mkdir build_3_9_0 && cd build_3_9_0 \
-    && cmake -Dprotobuf_BUILD_TESTS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_INSTALL_PREFIX=/opt/protobuf ../cmake \
-    && cmake --build . --target install
+# #Build Protobuf
+# WORKDIR /root/workspace
+# RUN git clone --branch v3.9.0 --depth 1 https://github.com/protocolbuffers/protobuf \
+#     && cd protobuf \
+#     && mkdir build_3_9_0 && cd build_3_9_0 \
+#     && cmake -Dprotobuf_BUILD_TESTS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_INSTALL_PREFIX=/opt/protobuf ../cmake \
+#     && cmake --build . --target install
 
-ENV CMAKE_PREFIX_PATH="/opt/glog;/opt/protobuf;/opt/websockets"
+# ENV CMAKE_PREFIX_PATH="/opt/glog;/opt/protobuf;/opt/websockets"
 
 WORKDIR /root/workspace
 RUN mkdir libs
@@ -92,9 +92,9 @@ COPY libtofi_compute.so /root/workspace/libs/libtofi_compute.so
 COPY libtofi_config.so /root/workspace/libs/libtofi_config.so
 
 # Build ToF
-RUN git clone --depth 1 https://github.com/analogdevicesinc/libaditof.git \
+RUN git clone --branch v6.0.0-beta --depth 1 https://github.com/analogdevicesinc/ToF \
     && cd ToF \
-    && git reset --hard 1ad9385 \
+    && git submodule update --init \
     && mkdir build && cd build \
     && cmake -DNXP=1 -DWITH_EXAMPLES=on -DCMAKE_PREFIX_PATH="/opt/glog;/opt/protobuf;/opt/websockets" -DCMAKE_BUILD_TYPE=Release .. \
     && make -j4
