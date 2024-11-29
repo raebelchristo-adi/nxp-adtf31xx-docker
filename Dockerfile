@@ -55,12 +55,13 @@ FROM rosdep_dependencies AS final
 
 # Entry at ros2_ws
 WORKDIR /root/ros2_ws
+ENV MAKEFLAGS="-j2"
 RUN /bin/bash -c "source /opt/ros/humble/setup.bash && colcon build --symlink-install --executor sequential --cmake-args -DCMAKE_BUILD_TYPE=Release -DNXP=1 -DWITH_GLOG_DEPENDENCY=ON -DWITH_NETWORK=ON -DWITH_PROTOBUF_DEPENDENCY=ON --packages-up-to adi_3dtof_adtf31xx"
 RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
 RUN echo "source /root/ros2_ws/install/setup.bash" >> /root/.bashrc
 COPY ros_entrypoint.sh /ros_entrypoint.sh
+RUN chmod +x /ros_entrypoint.sh
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
-ENV MAKEFLAGS="-j2"
 
 # Set the entrypoint
 ENTRYPOINT ["/ros_entrypoint.sh"]
