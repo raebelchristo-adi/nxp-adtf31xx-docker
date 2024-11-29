@@ -48,6 +48,12 @@ RUN rosdep init && rosdep update
 # Install dependencies using rosdep
 RUN apt-get update && rosdep install --from-paths src --ignore-src -y
 
+# Remove the src folder
+RUN rm -rf /root/ros2_ws/src
+
+########################################################################################
+# Use the below stage only if you want to build the ToF dependencies from source
+# Ensure to mount the necessary folders if not building it directly into image
 ########################################################################################
 FROM rosdep_dependencies AS tof_dependencies
 #Build ToF Dependencies from source
@@ -96,12 +102,12 @@ ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/glog/lib:/opt/protobuf/lib:/opt/websoc
 RUN unset CMAKE_PREFIX_PATH
 ########################################################################################
 
-FROM tof_dependencies AS final
+# SKipping the ToF stage
+FROM rosdep_dependencies AS final
 
-# Build the ROS2 workspace
+# Entry at ros2_ws
 WORKDIR /root/ros2_ws
 ENV MAKEFLAGS="-j2"
-RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/setup.bash && colcon build --symlink-install --executor sequential --cmake-args -DCMAKE_BUILD_TYPE=Release"
 
 # Set the entrypoint
 ENTRYPOINT ["/ros_entrypoint.sh"]
