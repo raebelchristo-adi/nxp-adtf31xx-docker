@@ -28,8 +28,6 @@ ENV ROS_DISTRO=humble
 ENV ROS_ROOT=/opt/ros/$ROS_DISTRO
 ENV PATH=$ROS_ROOT/bin:$PATH
 
-# Source ROS setup script
-RUN echo "source /opt/ros/$ROS_DISTRO/setup.bash" >> ~/.bashrc
 ########################################################################################
 #Building Rosdep dependencies
 FROM base AS rosdep_dependencies
@@ -37,6 +35,8 @@ FROM base AS rosdep_dependencies
 RUN mkdir -p /root/ros2_ws/src
 #Copy the adi_3dtof_adtf31xx folder to the workspace src directory
 COPY adi_3dtof_adtf31xx /root/ros2_ws/src/adi_3dtof_adtf31xx
+COPY libaditof /root/ros2_ws/src/libaditof
+COPY libs /root/ros2_ws/src/libs
 WORKDIR /root/ros2_ws
 
 # Install rosdep
@@ -48,66 +48,18 @@ RUN rosdep init && rosdep update
 # Install dependencies using rosdep
 RUN apt-get update && rosdep install --from-paths src --ignore-src -y
 
-# Remove the src folder
-RUN rm -rf /root/ros2_ws/src
-
-########################################################################################
-# Use the below stage only if you want to build the ToF dependencies from source
-# Ensure to mount the necessary folders if not building it directly into image
-########################################################################################
-FROM rosdep_dependencies AS tof_dependencies
-#Build ToF Dependencies from source
-
-#Build Glog
-WORKDIR /root/
-RUN mkdir workspace
-# WORKDIR /root/workspace
-# RUN git clone --branch v0.6.0 --depth 1 https://github.com/google/glog \
-#     && cd glog \
-#     && mkdir build_0_6_0 && cd build_0_6_0 \
-#     && cmake -DWITH_GFLAGS=off -DCMAKE_INSTALL_PREFIX=/opt/glog .. \
-#     && cmake --build . --target install
-
-# #Build Libwebsockets
-# WORKDIR /root/workspace
-# RUN git clone --branch v3.1-stable --depth 1 https://github.com/warmcat/libwebsockets \
-#     && cd libwebsockets \
-#     && mkdir build_3_1 && cd build_3_1 \
-#     && cmake -DLWS_WITH_SSL=OFF -DLWS_STATIC_PIC=ON -DCMAKE_INSTALL_PREFIX=/opt/websockets .. \
-#     && cmake --build . --target install
-
-# #Build Protobuf
-# WORKDIR /root/workspace
-# RUN git clone --branch v3.9.0 --depth 1 https://github.com/protocolbuffers/protobuf \
-#     && cd protobuf \
-#     && mkdir build_3_9_0 && cd build_3_9_0 \
-#     && cmake -Dprotobuf_BUILD_TESTS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_INSTALL_PREFIX=/opt/protobuf ../cmake \
-#     && cmake --build . --target install
-
-# ENV CMAKE_PREFIX_PATH="/opt/glog;/opt/protobuf;/opt/websockets"
-
-WORKDIR /root/workspace
-RUN mkdir libs
-COPY libtofi_compute.so /root/workspace/libs/libtofi_compute.so
-COPY libtofi_config.so /root/workspace/libs/libtofi_config.so
-
-# Build ToF
-RUN git clone --branch v6.0.0-beta --depth 1 https://github.com/analogdevicesinc/ToF \
-    && cd ToF \
-    && git submodule update --init \
-    && mkdir build && cd build \
-    && cmake -DNXP=1 -DWITH_EXAMPLES=on -DCMAKE_PREFIX_PATH="/opt/glog;/opt/protobuf;/opt/websockets" -DCMAKE_BUILD_TYPE=Release .. \
-    && make -j4
-WORKDIR /root/
-ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/glog/lib:/opt/protobuf/lib:/opt/websockets/lib
-RUN unset CMAKE_PREFIX_PATH
 ########################################################################################
 
 # SKipping the ToF stage
-FROM tof_dependencies AS final
+FROM rosdep_dependencies AS final
 
 # Entry at ros2_ws
 WORKDIR /root/ros2_ws
+RUN /bin/bash -c "source /opt/ros/humble/setup.bash && colcon build --symlink-install --executor sequential --cmake-args -DCMAKE_BUILD_TYPE=Release -DNXP=1 -DWITH_GLOG_DEPENDENCY=ON -DWITH_NETWORK=ON -DWITH_PROTOBUF_DEPENDENCY=ON --packages-up-to adi_3dtof_adtf31xx"
+RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
+RUN echo "source /root/ros2_ws/install/setup.bash" >> /root/.bashrc
+COPY ros_entrypoint.sh /ros_entrypoint.sh
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 ENV MAKEFLAGS="-j2"
 
 # Set the entrypoint
